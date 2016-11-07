@@ -1,0 +1,128 @@
+﻿
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>hangfire+SignalR</title>
+    <style type="text/css">
+        .container {
+            background-color: #99CCFF;
+            border: thick solid #808080;
+            padding: 20px;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <table>
+            <tr>
+                <td>
+                    <b1>大明</b1>
+                    <b2>:</b2>
+                    <select>
+                        <option value="buyEgg">去買雞蛋</option>
+                        <option value="buydaoyo">去買醬油</option>
+                        <option value="buyfruit">去買水果</option>
+                    </select>
+                    <button onclick="clientGobusomthing.ButtonClickEvent(this)">GO</button>
+                    <text id="a1"></text>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <b1>二明</b1>
+                    <b2>:</b2>
+                    <select>
+                        <option value="buyEgg">去買雞蛋</option>
+                        <option value="buydaoyo">去買醬油</option>
+                        <option value="buyfruit">去買水果</option>
+                    </select>
+                    <button onclick="clientGobusomthing.ButtonClickEvent(this)">GO</button>
+                    <text id="a2"></text>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <b1>小明</b1>
+                    <b2>:</b2>
+                    <select>
+                        <option value="buyEgg">去買雞蛋</option>
+                        <option value="buydaoyo">去買醬油</option>
+                        <option value="buyfruit">去買水果</option>
+                    </select>
+                    <button onclick="clientGobusomthing.ButtonClickEvent(this)">GO</button>
+                    <text id="a3"></text>
+                </td>
+            </tr>
+        </table>
+    </div>
+    <!--Script references. -->
+    <script src="~/Scripts/jquery-1.6.4.min.js"></script>
+    <script src="~/scripts/jquery.signalR-2.2.1.min.js"></script>
+    <script src="http://localhost:50925/habfireSR/hubs"></script>
+    <script>
+        /*暫存由HangFire_API回傳的Task ID*/
+        Globallocalstory = [];
+        /*呼叫HangFire_API 位置*/
+        GlobalAPILocation = { BuyOrder: function (whosend, doshomthing) { return 'http://localhost:56321/api/BuyOrder/hangfire' + "/" + whosend + "/" + doshomthing } };
+        //GlobalAPILocation = { BuyOrder: function (whosend, doshomthing) { return 'http://localhost:56321/api/BuyOrder/taskcontinuation' + "/" + whosend + "/" + doshomthing } };
+
+        var clientGobusomthing = {
+            /*按鈕觸發事件*/
+            ButtonClickEvent: function (obj) {
+
+                $(obj).attr('disabled', 'true');
+
+                var selectele = $(obj).parent().find('select');
+                var whobuyele = $(obj).parent().find('b1');
+                var eleTextid = $(obj).next().attr('id');
+
+                var whobuytext = $(whobuyele).text();
+                var selecteleVal = $(selectele).val();
+                $.get(GlobalAPILocation.BuyOrder(whobuytext, selecteleVal), clientGobusomthing.ajaxCallBack.bind({ whobuy: whobuytext, selectvalue: selecteleVal, textId: eleTextid }));
+
+            },
+            /*取回API回傳Call Back事件*/
+            ajaxCallBack: function (data) {
+                var addobj = { taskid: data, whobuy: this.whobuy, selecteleVal: this.selectvalue, textid: this.textId };
+                Globallocalstory.push(addobj);
+                clientGobusomthing.UpdateTextUI(this.textId, '出發中~~');
+
+            },
+            /*註冊接收SignalR回傳訊息*/
+            ReceverSignalrMsg: function (taskId, who, message) {
+
+                var result = $.grep(Globallocalstory, function (obj) { return obj.taskid == taskId });
+
+                if (result.length > 0) {
+                    clientGobusomthing.UpdateTextUI(result[0].textid, message);
+                    var findIndes = Globallocalstory.findIndex(function (obj) { return obj.taskid == result[0].taskid; });
+                    Globallocalstory.splice(findIndes, 1);
+
+                    $('#' + result[0].textid).parents().find('button').attr('disabled', false);
+
+                }
+
+            },
+            /*更新UI文字*/
+            UpdateTextUI: function (tagId, msg) {
+                $('#' + tagId).text(msg);
+            }
+        };
+
+        $(function () {
+
+            $.connection.hub.url = "http://localhost:50925/habfireSR"
+            //$.connection.hub.logging = true;
+
+            var hfhub = $.connection.sampleHUB;
+            hfhub.client.receiveMessage = clientGobusomthing.ReceverSignalrMsg;
+            $.connection.hub.start({ jsonp: true });
+        });
+    </script>
+</body>
+</html>
